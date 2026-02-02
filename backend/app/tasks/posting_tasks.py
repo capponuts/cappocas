@@ -13,7 +13,7 @@ from celery import shared_task
 from app.core.config import settings
 from app.automation.vinted import VintedAutomation
 from app.automation.leboncoin import LeboncoinAutomation
-from app.services.telegram_service import telegram_service
+from app.services.discord_service import discord_service
 
 
 def get_random_proxy() -> Optional[str]:
@@ -113,15 +113,15 @@ def post_to_vinted(
     try:
         result = run_async(_post())
         
-        # Notification Telegram
+        # Notification Discord
         if result.get("success"):
-            run_async(telegram_service.notify_success(
+            run_async(discord_service.notify_success(
                 listing_title=title,
                 platform="vinted",
                 url=result.get("url")
             ))
         else:
-            run_async(telegram_service.notify_failure(
+            run_async(discord_service.notify_failure(
                 listing_title=title,
                 platform="vinted",
                 error=result.get("error", "Erreur inconnue")
@@ -133,7 +133,7 @@ def post_to_vinted(
         # Retry avec backoff exponentiel
         retry_delay = 60 * (2 ** self.request.retries)
         
-        run_async(telegram_service.notify_failure(
+        run_async(discord_service.notify_failure(
             listing_title=title,
             platform="vinted",
             error=str(e)
@@ -188,15 +188,15 @@ def post_to_leboncoin(
     try:
         result = run_async(_post())
         
-        # Notification Telegram
+        # Notification Discord
         if result.get("success"):
-            run_async(telegram_service.notify_success(
+            run_async(discord_service.notify_success(
                 listing_title=title,
                 platform="leboncoin",
                 url=result.get("url")
             ))
         else:
-            run_async(telegram_service.notify_failure(
+            run_async(discord_service.notify_failure(
                 listing_title=title,
                 platform="leboncoin",
                 error=result.get("error", "Erreur inconnue")
@@ -207,7 +207,7 @@ def post_to_leboncoin(
     except Exception as e:
         retry_delay = 60 * (2 ** self.request.retries)
         
-        run_async(telegram_service.notify_failure(
+        run_async(discord_service.notify_failure(
             listing_title=title,
             platform="leboncoin",
             error=str(e)

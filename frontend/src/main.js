@@ -66,14 +66,13 @@ class ApiClient {
         return data;
     }
 
-    async register(username, email, password, telegramChatId = null) {
+    async register(username, email, password) {
         const data = await this.request('/auth/register', {
             method: 'POST',
             body: JSON.stringify({
                 username,
                 email,
                 password,
-                telegram_chat_id: telegramChatId,
             }),
         });
         this.setToken(data.access_token);
@@ -372,10 +371,9 @@ class App {
         const username = document.getElementById('register-username').value;
         const email = document.getElementById('register-email').value;
         const password = document.getElementById('register-password').value;
-        const telegram = document.getElementById('register-telegram').value;
 
         try {
-            const data = await api.register(username, email, password, telegram || null);
+            const data = await api.register(username, email, password);
             this.user = data.user;
             this.showToast('Compte créé avec succès', 'success');
             this.showPage('dashboard');

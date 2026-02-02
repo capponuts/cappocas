@@ -32,10 +32,9 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = Field(default=False)
     
     # ===================
-    # TELEGRAM
+    # DISCORD
     # ===================
-    TELEGRAM_BOT_TOKEN: str = Field(default="")
-    TELEGRAM_CHAT_ID: str = Field(default="")
+    DISCORD_WEBHOOK_URL: str = Field(default="")
     
     # ===================
     # SÉCURITÉ

@@ -12,6 +12,7 @@ from app.api import router as api_router
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.services.minio_service import minio_service
+from app.services.discord_service import discord_service
 
 
 @asynccontextmanager
@@ -28,6 +29,10 @@ async def lifespan(app: FastAPI):
     # Initialiser le bucket MinIO
     await minio_service.init_bucket()
     print("✅ Stockage MinIO initialisé")
+    
+    # Notification Discord de démarrage
+    await discord_service.notify_app_start()
+    print("✅ Notification Discord envoyée")
     
     yield
     
