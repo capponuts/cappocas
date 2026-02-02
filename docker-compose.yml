@@ -1,0 +1,194 @@
+version: '3.8'
+
+services:
+  # ===================
+  # BASE DE DONNÉES
+  # ===================
+  postgres:
+    image: postgres:15-alpine
+    container_name: cappocas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cappocas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cappocas_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-cappocas_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cappocas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===================
+  # REDIS (File d'attente)
+  # ===================
+  redis:
+    image: redis:7-alpine
+    container_name: cappocas_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===================
+  # MINIO (Stockage S3)
+  # ===================
+  minio:
+    image: minio/minio:latest
+    container_name: cappocas_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ===================
+  # BACKEND FASTAPI
+  # ===================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+    volumes:
+      - ./backend:/app
+      - playwright_browsers:/root/.cache/ms-playwright
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # ===================
+  # CELERY WORKER
+  # ===================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_celery_worker
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+    volumes:
+      - ./backend:/app
+      - playwright_browsers:/root/.cache/ms-playwright
+    depends_on:
+      - backend
+      - redis
+
+  # ===================
+  # CELERY BEAT (Scheduler)
+  # ===================
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_celery_beat
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+
+  # ===================
+  # FLOWER (Monitoring Celery)
+  # ===================
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_flower
+    restart: unless-stopped
+    command: celery -A app.celery_app flower --port=5555
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - celery_worker
+
+  # ===================
+  # FRONTEND (Interface Web)
+  # ===================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cappocas_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # ===================
+  # NGINX (Reverse Proxy)
+  # ===================
+  nginx:
+    image: nginx:alpine
+    container_name: cappocas_nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  playwright_browsers:
+
+networks:
+  default:
+    name: cappocas_network

@@ -1,0 +1,89 @@
+# ===================
+# ENVIRONNEMENT
+# ===================
+.env
+.env.local
+.env.*.local
+*.env
+
+# ===================
+# PYTHON
+# ===================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# ===================
+# VIRTUAL ENVIRONMENTS
+# ===================
+venv/
+ENV/
+env/
+.venv/
+
+# ===================
+# IDE
+# ===================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ===================
+# NODE
+# ===================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===================
+# DOCKER
+# ===================
+*.log
+
+# ===================
+# OS
+# ===================
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.temp
+
+# ===================
+# DONNÉES LOCALES
+# ===================
+*.db
+*.sqlite3
+uploads/
+screenshots/

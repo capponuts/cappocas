@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cappocas - Automatisation d'annonces</title>
+    <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <h1 class="logo">Cappocas</h1>
+                    <nav class="nav" id="nav">
+                        <a href="#" class="nav-link active" data-page="dashboard">Tableau de bord</a>
+                        <a href="#" class="nav-link" data-page="create">Nouvelle annonce</a>
+                        <a href="#" class="nav-link" data-page="listings">Mes annonces</a>
+                        <a href="#" class="nav-link" data-page="settings">Paramètres</a>
+                    </nav>
+                    <button class="btn btn-secondary" id="logout-btn" style="display: none;">Déconnexion</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                <!-- Login Page -->
+                <div id="page-login" class="page">
+                    <div class="auth-container">
+                        <div class="auth-card">
+                            <h2>Connexion</h2>
+                            <form id="login-form">
+                                <div class="form-group">
+                                    <label for="login-email">Email</label>
+                                    <input type="email" id="login-email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="login-password">Mot de passe</label>
+                                    <input type="password" id="login-password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+                            </form>
+                            <p class="auth-switch">
+                                Pas encore de compte ? 
+                                <a href="#" id="show-register">Créer un compte</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Register Page -->
+                <div id="page-register" class="page" style="display: none;">
+                    <div class="auth-container">
+                        <div class="auth-card">
+                            <h2>Créer un compte</h2>
+                            <form id="register-form">
+                                <div class="form-group">
+                                    <label for="register-username">Nom d'utilisateur</label>
+                                    <input type="text" id="register-username" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="register-email">Email</label>
+                                    <input type="email" id="register-email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="register-password">Mot de passe</label>
+                                    <input type="password" id="register-password" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="register-telegram">ID Telegram (optionnel)</label>
+                                    <input type="text" id="register-telegram" placeholder="Pour les notifications">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Créer le compte</button>
+                            </form>
+                            <p class="auth-switch">
+                                Déjà un compte ? 
+                                <a href="#" id="show-login">Se connecter</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Page -->
+                <div id="page-dashboard" class="page" style="display: none;">
+                    <h2>Tableau de bord</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-content">
+                                <span class="stat-value" id="total-listings">0</span>
+                                <span class="stat-label">Annonces totales</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-content">
+                                <span class="stat-value" id="published-listings">0</span>
+                                <span class="stat-label">Publiées</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⏳</div>
+                            <div class="stat-content">
+                                <span class="stat-value" id="pending-listings">0</span>
+                                <span class="stat-label">En attente</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">❌</div>
+                            <div class="stat-content">
+                                <span class="stat-value" id="failed-listings">0</span>
+                                <span class="stat-label">Échecs</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="recent-section">
+                        <h3>Activité récente</h3>
+                        <div id="recent-activity" class="activity-list">
+                            <p class="empty-message">Aucune activité récente</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Listing Page -->
+                <div id="page-create" class="page" style="display: none;">
+                    <h2>Nouvelle annonce</h2>
+                    <form id="create-listing-form" class="listing-form">
+                        <div class="form-section">
+                            <h3>Photos</h3>
+                            <div class="upload-zone" id="upload-zone">
+                                <input type="file" id="image-input" multiple accept="image/*" hidden>
+                                <div class="upload-placeholder">
+                                    <span class="upload-icon">📷</span>
+                                    <p>Cliquez ou glissez vos photos ici</p>
+                                    <small>JPG, PNG ou WebP - Max 10 Mo par image</small>
+                                </div>
+                            </div>
+                            <div id="image-preview" class="image-preview-grid"></div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Informations</h3>
+                            <div class="form-group">
+                                <label for="listing-title">Titre *</label>
+                                <input type="text" id="listing-title" required maxlength="100" placeholder="Ex: iPhone 13 Pro - Excellent état">
+                            </div>
+                            <div class="form-group">
+                                <label for="listing-description">Description *</label>
+                                <textarea id="listing-description" rows="5" required placeholder="Décrivez votre article en détail..."></textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="listing-price">Prix (€) *</label>
+                                    <input type="number" id="listing-price" required min="0" step="0.01" placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="listing-condition">État</label>
+                                    <select id="listing-condition">
+                                        <option value="">Sélectionner</option>
+                                        <option value="neuf">Neuf avec étiquette</option>
+                                        <option value="neuf_sans_etiquette">Neuf sans étiquette</option>
+                                        <option value="tres_bon">Très bon état</option>
+                                        <option value="bon">Bon état</option>
+                                        <option value="satisfaisant">Satisfaisant</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="listing-category">Catégorie</label>
+                                    <input type="text" id="listing-category" placeholder="Ex: Électronique">
+                                </div>
+                                <div class="form-group">
+                                    <label for="listing-location">Localisation</label>
+                                    <input type="text" id="listing-location" placeholder="Ex: Paris 75001">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Plateformes</h3>
+                            <div class="platform-options">
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="post-leboncoin" checked>
+                                    <span class="checkbox-content">
+                                        <span class="platform-name">Leboncoin</span>
+                                        <span class="platform-desc">Marché généraliste français</span>
+                                    </span>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="post-vinted" checked>
+                                    <span class="checkbox-content">
+                                        <span class="platform-name">Vinted</span>
+                                        <span class="platform-desc">Mode et accessoires</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Planification (optionnel)</h3>
+                            <div class="form-group">
+                                <label for="listing-schedule">Date et heure de publication</label>
+                                <input type="datetime-local" id="listing-schedule">
+                                <small>Laissez vide pour publier immédiatement</small>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="save-draft">Sauvegarder brouillon</button>
+                            <button type="submit" class="btn btn-primary">Publier l'annonce</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Listings Page -->
+                <div id="page-listings" class="page" style="display: none;">
+                    <div class="page-header">
+                        <h2>Mes annonces</h2>
+                        <button class="btn btn-primary" id="new-listing-btn">+ Nouvelle annonce</button>
+                    </div>
+                    <div id="listings-container" class="listings-grid">
+                        <p class="empty-message">Vous n'avez pas encore d'annonces</p>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div id="page-settings" class="page" style="display: none;">
+                    <h2>Paramètres</h2>
+                    <form id="settings-form" class="settings-form">
+                        <div class="form-section">
+                            <h3>Comptes Leboncoin</h3>
+                            <div class="form-group">
+                                <label for="leboncoin-email">Email</label>
+                                <input type="email" id="leboncoin-email">
+                            </div>
+                            <div class="form-group">
+                                <label for="leboncoin-password">Mot de passe</label>
+                                <input type="password" id="leboncoin-password">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Comptes Vinted</h3>
+                            <div class="form-group">
+                                <label for="vinted-email">Email</label>
+                                <input type="email" id="vinted-email">
+                            </div>
+                            <div class="form-group">
+                                <label for="vinted-password">Mot de passe</label>
+                                <input type="password" id="vinted-password">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Notifications Telegram</h3>
+                            <div class="form-group">
+                                <label for="telegram-chat-id">Chat ID</label>
+                                <input type="text" id="telegram-chat-id" placeholder="Votre ID de chat Telegram">
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

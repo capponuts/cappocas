@@ -1,0 +1,10 @@
+# Liste des proxies pour la rotation
+# Format: http://user:password@ip:port ou http://ip:port
+# Un proxy par ligne
+# 
+# Exemple:
+# http://user123:pass456@192.168.1.1:8080
+# http://proxy.example.com:3128
+#
+# IMPORTANT: Utilisez des proxies résidentiels de qualité pour éviter les bans
+# Services recommandés: Bright Data, Oxylabs, SmartProxy
