@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cappocas}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cappocas_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
       POSTGRES_DB: ${POSTGRES_DB:-cappocas_db}
     volumes:
       - cappocas_postgres_data:/var/lib/postgresql/data
@@ -71,13 +71,13 @@ services:
     container_name: cappocas_backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
       - MINIO_BUCKET=cappocas-images
-      - SECRET_KEY=${SECRET_KEY:-change_this_secret_key_in_production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY required}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
       - LEBONCOIN_EMAIL=${LEBONCOIN_EMAIL:-}
@@ -124,7 +124,7 @@ services:
     restart: unless-stopped
     command: celery -A app.celery_app worker --loglevel=info --concurrency=2
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
@@ -156,7 +156,7 @@ services:
     restart: unless-stopped
     command: celery -A app.celery_app beat --loglevel=info
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - backend

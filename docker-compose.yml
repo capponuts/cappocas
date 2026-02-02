@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cappocas}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cappocas_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
       POSTGRES_DB: ${POSTGRES_DB:-cappocas_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -74,7 +74,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
     volumes:
@@ -103,7 +103,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
     volumes:
@@ -126,7 +126,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app
