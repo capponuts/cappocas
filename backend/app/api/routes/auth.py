@@ -68,6 +68,12 @@ async def register(
 ):
     """Créer un nouveau compte utilisateur."""
     
+    # Inscriptions désactivées - seul l'admin peut créer des comptes
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Les inscriptions sont désactivées. Contactez l'administrateur."
+    )
+    
     # Vérifier si l'email existe déjà
     result = await db.execute(
         select(User).where(User.email == user_data.email)

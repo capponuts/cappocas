@@ -1,0 +1,229 @@
+version: '3.8'
+
+services:
+  # ===================
+  # BASE DE DONNÉES
+  # ===================
+  postgres:
+    image: postgres:15-alpine
+    container_name: cappocas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cappocas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cappocas_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-cappocas_db}
+    volumes:
+      - cappocas_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cappocas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cappocas_internal
+
+  # ===================
+  # REDIS (File d'attente)
+  # ===================
+  redis:
+    image: redis:7-alpine
+    container_name: cappocas_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - cappocas_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cappocas_internal
+
+  # ===================
+  # MINIO (Stockage S3)
+  # ===================
+  minio:
+    image: minio/minio:latest
+    container_name: cappocas_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - cappocas_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - cappocas_internal
+
+  # ===================
+  # BACKEND FASTAPI
+  # ===================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BUCKET=cappocas-images
+      - SECRET_KEY=${SECRET_KEY:-change_this_secret_key_in_production}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - LEBONCOIN_EMAIL=${LEBONCOIN_EMAIL:-}
+      - LEBONCOIN_PASSWORD=${LEBONCOIN_PASSWORD:-}
+      - VINTED_EMAIL=${VINTED_EMAIL:-}
+      - VINTED_PASSWORD=${VINTED_PASSWORD:-}
+      - MIN_DELAY_BETWEEN_POSTS=${MIN_DELAY_BETWEEN_POSTS:-300}
+      - MAX_DELAY_BETWEEN_POSTS=${MAX_DELAY_BETWEEN_POSTS:-900}
+    volumes:
+      - cappocas_uploads:/app/uploads
+      - cappocas_screenshots:/app/screenshots
+      - cappocas_playwright:/root/.cache/ms-playwright
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - cappocas_internal
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.cappocas-api.rule=Host(`cappocas.capponuts.fr`) && PathPrefix(`/api`)
+      - traefik.http.routers.cappocas-api.tls=true
+      - traefik.http.routers.cappocas-api.entrypoints=web,websecure
+      - traefik.http.routers.cappocas-api.tls.certresolver=mytlschallenge
+      - traefik.http.services.cappocas-api.loadbalancer.server.port=8000
+      - traefik.http.routers.cappocas-health.rule=Host(`cappocas.capponuts.fr`) && Path(`/health`)
+      - traefik.http.routers.cappocas-health.tls=true
+      - traefik.http.routers.cappocas-health.entrypoints=web,websecure
+      - traefik.http.routers.cappocas-health.tls.certresolver=mytlschallenge
+      - traefik.http.services.cappocas-health.loadbalancer.server.port=8000
+
+  # ===================
+  # CELERY WORKER
+  # ===================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_celery_worker
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - LEBONCOIN_EMAIL=${LEBONCOIN_EMAIL:-}
+      - LEBONCOIN_PASSWORD=${LEBONCOIN_PASSWORD:-}
+      - VINTED_EMAIL=${VINTED_EMAIL:-}
+      - VINTED_PASSWORD=${VINTED_PASSWORD:-}
+    volumes:
+      - cappocas_uploads:/app/uploads
+      - cappocas_screenshots:/app/screenshots
+      - cappocas_playwright:/root/.cache/ms-playwright
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - cappocas_internal
+
+  # ===================
+  # CELERY BEAT (Scheduler)
+  # ===================
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_celery_beat
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD:-cappocas_secret}@postgres:5432/${POSTGRES_DB:-cappocas_db}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - cappocas_internal
+
+  # ===================
+  # FLOWER (Monitoring Celery)
+  # ===================
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cappocas_flower
+    restart: unless-stopped
+    command: celery -A app.celery_app flower --port=5555
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - celery_worker
+    networks:
+      - cappocas_internal
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.cappocas-flower.rule=Host(`cappocas.capponuts.fr`) && PathPrefix(`/flower`)
+      - traefik.http.routers.cappocas-flower.tls=true
+      - traefik.http.routers.cappocas-flower.entrypoints=web,websecure
+      - traefik.http.routers.cappocas-flower.tls.certresolver=mytlschallenge
+      - traefik.http.services.cappocas-flower.loadbalancer.server.port=5555
+      - traefik.http.middlewares.flower-strip.stripprefix.prefixes=/flower
+      - traefik.http.routers.cappocas-flower.middlewares=flower-strip
+
+  # ===================
+  # FRONTEND
+  # ===================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cappocas_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - cappocas_internal
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.cappocas-frontend.rule=Host(`cappocas.capponuts.fr`)
+      - traefik.http.routers.cappocas-frontend.tls=true
+      - traefik.http.routers.cappocas-frontend.entrypoints=web,websecure
+      - traefik.http.routers.cappocas-frontend.tls.certresolver=mytlschallenge
+      - traefik.http.services.cappocas-frontend.loadbalancer.server.port=80
+      - traefik.http.routers.cappocas-frontend.priority=1
+
+volumes:
+  cappocas_postgres_data:
+  cappocas_redis_data:
+  cappocas_minio_data:
+  cappocas_uploads:
+  cappocas_screenshots:
+  cappocas_playwright:
+
+networks:
+  cappocas_internal:
+    driver: bridge
+  n8n_default:
+    external: true
