@@ -52,12 +52,31 @@ def post_to_vinted(
     images: List[str],
     email: str,
     password: str,
+    category: Optional[str] = None,
+    category_path: Optional[List[str]] = None,
+    condition: Optional[str] = None,
+    brand: Optional[str] = None,
+    size: Optional[str] = None,
+    colors: Optional[List[str]] = None,
     **kwargs
 ):
     """
-    Poster une annonce sur Vinted.
+    Poster une annonce sur Vinted avec catégorisation automatique.
     
-    Cette tâche est exécutée de manière asynchrone par Celery.
+    Args:
+        listing_id: ID de l'annonce
+        title: Titre
+        description: Description
+        price: Prix
+        images: Chemins des images
+        email: Email Vinted
+        password: Mot de passe Vinted
+        category: Nom de la catégorie
+        category_path: Chemin complet de la catégorie Vinted
+        condition: État du produit
+        brand: Marque
+        size: Taille
+        colors: Liste des couleurs
     """
     async def _post():
         proxy = get_random_proxy()
@@ -82,7 +101,11 @@ def post_to_vinted(
                 description=description,
                 price=price,
                 images=images,
-                **kwargs
+                category=category,
+                brand=brand,
+                condition=condition,
+                size=size,
+                colors=colors,
             )
             
             return result

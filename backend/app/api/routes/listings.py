@@ -39,8 +39,14 @@ class ListingCreate(BaseModel):
     description: str
     price: float
     category: Optional[str] = None
+    category_path: Optional[List[str]] = None  # Chemin catégorie Vinted
     condition: Optional[str] = None
     location: Optional[str] = None
+    # Champs Vinted
+    brand: Optional[str] = None
+    size: Optional[str] = None
+    colors: Optional[List[str]] = None
+    # Plateformes
     post_to_leboncoin: bool = True
     post_to_vinted: bool = True
     scheduled_at: Optional[datetime] = None
@@ -53,8 +59,12 @@ class ListingUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     category: Optional[str] = None
+    category_path: Optional[List[str]] = None
     condition: Optional[str] = None
     location: Optional[str] = None
+    brand: Optional[str] = None
+    size: Optional[str] = None
+    colors: Optional[List[str]] = None
     post_to_leboncoin: Optional[bool] = None
     post_to_vinted: Optional[bool] = None
     scheduled_at: Optional[datetime] = None
@@ -67,8 +77,12 @@ class ListingResponse(BaseModel):
     description: str
     price: float
     category: Optional[str]
+    category_path: Optional[List[str]]
     condition: Optional[str]
     location: Optional[str]
+    brand: Optional[str]
+    size: Optional[str]
+    colors: Optional[List[str]]
     post_to_leboncoin: bool
     post_to_vinted: bool
     leboncoin_status: ListingStatus
@@ -152,8 +166,12 @@ async def create_listing(
         description=listing_data.description,
         price=listing_data.price,
         category=listing_data.category,
+        category_path=listing_data.category_path,
         condition=listing_data.condition,
         location=listing_data.location,
+        brand=listing_data.brand,
+        size=listing_data.size,
+        colors=listing_data.colors,
         post_to_leboncoin=listing_data.post_to_leboncoin,
         post_to_vinted=listing_data.post_to_vinted,
         scheduled_at=listing_data.scheduled_at,
@@ -288,7 +306,11 @@ async def publish_listing(
             email=settings.VINTED_EMAIL,
             password=settings.VINTED_PASSWORD,
             category=listing.category,
+            category_path=listing.category_path,
             condition=listing.condition,
+            brand=listing.brand,
+            size=listing.size,
+            colors=listing.colors,
         )
         listing.vinted_status = ListingStatus.PENDING
         tasks_launched.append({"platform": "vinted", "task_id": task.id})

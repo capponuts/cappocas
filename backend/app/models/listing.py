@@ -37,8 +37,14 @@ class Listing(Base):
     description = Column(Text, nullable=False)
     price = Column(Float, nullable=False)
     category = Column(String(100), nullable=True)
+    category_path = Column(JSON, nullable=True)  # Chemin complet de la catégorie Vinted
     condition = Column(String(50), nullable=True)  # neuf, très bon état, etc.
     location = Column(String(255), nullable=True)
+    
+    # Champs spécifiques Vinted
+    brand = Column(String(100), nullable=True)  # Marque
+    size = Column(String(50), nullable=True)  # Taille
+    colors = Column(JSON, nullable=True)  # Liste des couleurs
     
     # Plateformes cibles
     post_to_leboncoin = Column(Boolean, default=True)

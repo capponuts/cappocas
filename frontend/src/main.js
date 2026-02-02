@@ -115,6 +115,18 @@ class ApiClient {
         return this.request(`/listings/${id}/publish`, { method: 'POST' });
     }
 
+    // Categories (Vinted)
+    async analyzeCategory(title, description = '') {
+        return this.request('/categories/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ title, description }),
+        });
+    }
+
+    async searchCategories(query) {
+        return this.request(`/categories/search?q=${encodeURIComponent(query)}`);
+    }
+
     // Uploads
     async uploadImages(files) {
         const formData = new FormData();
@@ -207,6 +219,88 @@ class App {
         document.getElementById('new-listing-btn').addEventListener('click', () => {
             this.showPage('create');
         });
+
+        // Category auto-detection (debounced)
+        let categoryDebounceTimer;
+        const titleInput = document.getElementById('listing-title');
+        const descriptionInput = document.getElementById('listing-description');
+        
+        const triggerCategoryAnalysis = () => {
+            clearTimeout(categoryDebounceTimer);
+            categoryDebounceTimer = setTimeout(() => {
+                this.analyzeVintedCategory();
+            }, 500); // Attendre 500ms après la dernière frappe
+        };
+        
+        titleInput.addEventListener('input', triggerCategoryAnalysis);
+        descriptionInput.addEventListener('input', triggerCategoryAnalysis);
+    }
+
+    async analyzeVintedCategory() {
+        const title = document.getElementById('listing-title').value.trim();
+        const description = document.getElementById('listing-description').value.trim();
+        const previewEl = document.getElementById('vinted-category-preview');
+        
+        if (title.length < 3) {
+            previewEl.className = 'category-preview';
+            previewEl.innerHTML = '<span class="category-hint">💡 La catégorie sera détectée automatiquement d\'après le titre</span>';
+            return;
+        }
+        
+        // Afficher loading
+        previewEl.className = 'category-preview loading';
+        previewEl.innerHTML = '<span class="category-hint">🔍 Analyse en cours...</span>';
+        
+        try {
+            const result = await api.analyzeCategory(title, description);
+            
+            if (result.suggested_category) {
+                const confidence = result.confidence;
+                let confidenceClass = 'confidence-low';
+                let confidenceText = 'Faible';
+                
+                if (confidence >= 0.7) {
+                    confidenceClass = 'confidence-high';
+                    confidenceText = 'Élevée';
+                } else if (confidence >= 0.4) {
+                    confidenceClass = 'confidence-medium';
+                    confidenceText = 'Moyenne';
+                }
+                
+                let html = `
+                    <div class="category-detected">
+                        <div class="category-path">${result.suggested_category.full_path}</div>
+                        <div class="category-confidence ${confidenceClass}">
+                            Confiance: ${confidenceText} (${Math.round(confidence * 100)}%)
+                            ${result.detected_gender ? ` • Genre détecté: ${result.detected_gender}` : ''}
+                        </div>
+                `;
+                
+                if (result.alternatives && result.alternatives.length > 0) {
+                    html += `
+                        <div class="category-alternatives">
+                            Alternatives: ${result.alternatives.map(a => `<span>${a.name}</span>`).join('')}
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                
+                previewEl.className = 'category-preview detected';
+                previewEl.innerHTML = html;
+                
+                // Stocker la catégorie détectée
+                this.detectedCategory = result.suggested_category;
+            } else {
+                previewEl.className = 'category-preview';
+                previewEl.innerHTML = `<span class="category-hint">⚠️ ${result.message || 'Impossible de détecter la catégorie'}</span>`;
+                this.detectedCategory = null;
+            }
+        } catch (error) {
+            previewEl.className = 'category-preview';
+            previewEl.innerHTML = '<span class="category-hint">❌ Erreur lors de l\'analyse</span>';
+            this.detectedCategory = null;
+        }
     }
 
     async checkAuth() {
@@ -461,13 +555,24 @@ class App {
     async handleCreateListing(e) {
         e.preventDefault();
 
+        // Récupérer les couleurs (séparées par virgule)
+        const colorsValue = document.getElementById('listing-colors').value;
+        const colors = colorsValue ? colorsValue.split(',').map(c => c.trim()).filter(c => c) : null;
+
         const data = {
             title: document.getElementById('listing-title').value,
             description: document.getElementById('listing-description').value,
             price: parseFloat(document.getElementById('listing-price').value),
             condition: document.getElementById('listing-condition').value || null,
-            category: document.getElementById('listing-category').value || null,
+            // Catégorie auto-détectée (stockée dans this.detectedCategory)
+            category: this.detectedCategory?.name || null,
+            category_path: this.detectedCategory?.path || null,
             location: document.getElementById('listing-location').value || null,
+            // Nouveaux champs Vinted
+            brand: document.getElementById('listing-brand').value || null,
+            size: document.getElementById('listing-size').value || null,
+            colors: colors,
+            // Plateformes
             post_to_leboncoin: document.getElementById('post-leboncoin').checked,
             post_to_vinted: document.getElementById('post-vinted').checked,
             image_ids: this.uploadedImages.map(img => img.id),
@@ -476,6 +581,12 @@ class App {
         const scheduleValue = document.getElementById('listing-schedule').value;
         if (scheduleValue) {
             data.scheduled_at = new Date(scheduleValue).toISOString();
+        }
+
+        // Vérifier qu'une catégorie a été détectée pour Vinted
+        if (data.post_to_vinted && !this.detectedCategory) {
+            this.showToast('Impossible de détecter la catégorie Vinted. Veuillez préciser le titre.', 'warning');
+            return;
         }
 
         try {
@@ -491,7 +602,13 @@ class App {
             // Reset form
             e.target.reset();
             this.uploadedImages = [];
+            this.detectedCategory = null;
             this.renderImagePreviews();
+            
+            // Reset category preview
+            const previewEl = document.getElementById('vinted-category-preview');
+            previewEl.className = 'category-preview';
+            previewEl.innerHTML = '<span class="category-hint">💡 La catégorie sera détectée automatiquement d\'après le titre</span>';
             
             this.showPage('listings');
         } catch (error) {
