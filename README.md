@@ -2,12 +2,14 @@
 
 Application web pour automatiser le postage d'annonces sur Leboncoin et Vinted.
 
+**Production** : https://cappocas.capponuts.fr
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         NGINX (Reverse Proxy)                    │
-│                              :80                                 │
+│                    Traefik (Reverse Proxy + SSL)                 │
+│              cappocas.capponuts.fr (Let's Encrypt)               │
 └─────────────────────┬───────────────────────────────────────────┘
                       │
         ┌─────────────┼─────────────┐
@@ -15,8 +17,8 @@ Application web pour automatiser le postage d'annonces sur Leboncoin et Vinted.
         ▼             ▼             ▼
 ┌───────────┐  ┌───────────┐  ┌───────────┐
 │ Frontend  │  │  Backend  │  │  Flower   │
-│  (Vite)   │  │ (FastAPI) │  │ (Monitor) │
-│   :3000   │  │   :8000   │  │   :5555   │
+│ (Nginx)   │  │ (FastAPI) │  │ (Monitor) │
+│   :80     │  │   :8000   │  │   :5555   │
 └───────────┘  └─────┬─────┘  └───────────┘
                      │
         ┌────────────┼────────────┐
@@ -28,10 +30,10 @@ Application web pour automatiser le postage d'annonces sur Leboncoin et Vinted.
 └─────┬─────┘  └───────────┘  └───────────┘
       │
       ▼
-┌───────────┐
-│ Playwright│
-│ (Browser) │
-└───────────┘
+┌───────────┐  ┌───────────┐
+│ Playwright│  │   MinIO   │
+│ (Browser) │  │ (Storage) │
+└───────────┘  └───────────┘
 ```
 
 ## Prérequis
@@ -88,6 +90,48 @@ docker-compose logs -f
 - **API** : http://localhost/api
 - **Flower (monitoring)** : http://localhost:5555
 - **MinIO Console** : http://localhost:9001
+
+## Déploiement VPS (Hostinger)
+
+L'application est déployée sur un VPS Hostinger avec Traefik comme reverse proxy.
+
+### Configuration VPS
+
+| Élément | Valeur |
+|---------|--------|
+| **URL** | https://cappocas.capponuts.fr |
+| **Reverse Proxy** | Traefik (partagé avec n8n) |
+| **SSL** | Let's Encrypt (auto-renouvelé) |
+| **Répertoire** | `/docker/cappocas/` |
+
+### Fichiers sur le VPS
+
+```
+/docker/
+├── cappocas/
+│   ├── docker-compose.yml    # Config Docker Compose
+│   └── .env                  # Variables d'environnement
+└── n8n/
+    ├── docker-compose.yml    # Config n8n + Traefik
+    └── dynamic/
+        └── cappocas.yml      # Routes Traefik pour Cappocas
+```
+
+### Commandes de gestion sur le VPS
+
+```bash
+# Connexion SSH
+ssh root@72.62.237.27
+
+# Voir les logs
+cd /docker/cappocas && docker compose logs -f
+
+# Redémarrer les services
+docker compose down && docker compose up -d
+
+# Redémarrer Traefik après modification des routes
+docker restart n8n-traefik-1
+```
 
 ## Utilisation
 
