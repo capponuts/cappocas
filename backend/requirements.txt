@@ -50,3 +50,4 @@ pillow==10.2.0
 python-dotenv==1.0.0
 tenacity==8.2.3
 fake-useragent==1.4.0
+nest-asyncio==1.5.8

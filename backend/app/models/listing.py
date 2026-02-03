@@ -15,13 +15,13 @@ from app.core.database import Base
 
 class ListingStatus(str, enum.Enum):
     """Statut d'une annonce."""
-    DRAFT = "draft"
-    PENDING = "pending"
-    SCHEDULED = "scheduled"
-    PUBLISHING = "publishing"
-    PUBLISHED = "published"
-    FAILED = "failed"
-    DELETED = "deleted"
+    DRAFT = "DRAFT"
+    PENDING = "PENDING"
+    SCHEDULED = "SCHEDULED"
+    PUBLISHING = "PUBLISHING"
+    PUBLISHED = "PUBLISHED"
+    FAILED = "FAILED"
+    DELETED = "DELETED"
 
 
 class Listing(Base):
@@ -86,7 +86,7 @@ class ListingImage(Base):
     __tablename__ = "listing_images"
     
     id = Column(Integer, primary_key=True, index=True)
-    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=True)
     
     # Informations de l'image
     filename = Column(String(255), nullable=False)

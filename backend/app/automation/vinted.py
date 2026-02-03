@@ -27,7 +27,25 @@ class VintedAutomation(BaseAutomation):
         "satisfaisant": "Satisfaisant",
     }
     
-    async def login(self, email: str, password: str) -> bool:
+    async def is_logged_in(self) -> bool:
+        """Vérifie si l'utilisateur est connecté."""
+        try:
+            # Vérifier la présence d'éléments uniquement visibles connectés
+            # Le menu utilisateur (avatar), l'icône de profil, ou le lien vers le profil
+            # Sur la capture réussie, on voit l'avatar en haut à droite
+            await self.page.wait_for_selector(
+                '[data-testid="header--user-menu"], '
+                '[data-testid="header--user-profile-icon"], '
+                '.user-profile-icon, '
+                'a[href^="/member/"], '
+                '[aria-label="Profil"]',
+                timeout=5000
+            )
+            return True
+        except:
+            return False
+
+    async def login(self, email: str, password: str, cookies: Optional[List[Dict[str, Any]]] = None) -> bool:
         """
         Se connecter à Vinted.
         
@@ -35,7 +53,22 @@ class VintedAutomation(BaseAutomation):
         Cette méthode peut nécessiter des ajustements fréquents.
         """
         try:
-            await self.page.goto(self.BASE_URL)
+            # Désactivation temporaire des cookies - on force le login classique
+            # car les cookies expiraient et causaient des déconnexions
+            print("🔑 Login classique par email/mot de passe (cookies désactivés)")
+            
+            # Utiliser l'URL de signup/select_type comme point d'entrée fiable
+            # Augmentation du timeout pour le tunnel SSH qui peut être lent
+            try:
+                await self.page.goto(
+                    "https://www.vinted.fr/member/signup/select_type?ref_url=%2F", 
+                    timeout=60000, 
+                    wait_until='domcontentloaded'
+                )
+                await self.page.wait_for_load_state('networkidle', timeout=30000)
+            except Exception as e:
+                print(f"⚠️ Page longue à charger: {e}")
+            
             await self.random_delay(2, 4)
             
             # Accepter les cookies si le bandeau apparaît
@@ -47,21 +80,57 @@ class VintedAutomation(BaseAutomation):
                 await cookie_button.click()
                 await self.random_delay()
             except:
-                pass  # Pas de bandeau de cookies
-            
-            # Cliquer sur "Se connecter"
-            login_button = await self.page.wait_for_selector(
-                '[data-testid="header--login-button"], a[href*="login"]',
-                timeout=10000
-            )
-            await login_button.click()
-            await self.random_delay(1, 2)
-            
-            # Attendre le formulaire de connexion
-            await self.page.wait_for_selector('input[type="email"], input[name="email"]', timeout=10000)
+                pass
+
+            # 1. Cliquer sur "Se connecter" (le lien en bas "Tu as déjà un compte ? Se connecter")
+            print("Tentative de clic sur 'Se connecter'...")
+            try:
+                # Utilisation de sélecteurs de texte pour être plus robuste
+                await self.page.click('text="Se connecter"')
+                await self.random_delay(1, 2)
+                print("Clic sur 'Se connecter' réussi")
+            except Exception as e:
+                print(f"Échec clic 'Se connecter': {e}")
+                # Fallback: essayer de trouver le lien par href si le texte échoue
+                try:
+                    await self.page.click('a[href*="login"]')
+                    await self.random_delay(1, 2)
+                except:
+                    pass
+
+            # 2. Cliquer sur "ou connecte-toi avec e-mail"
+            print("Recherche de l'option email...")
+            try:
+                # Chercher le bouton/lien pour l'email
+                # Les variantes de texte possibles
+                email_selectors = [
+                    'text="connecte-toi avec e-mail"',
+                    'text="connecte-toi avec ton e-mail"',
+                    'text="e-mail"',
+                    '[data-testid="auth-select-type--email"]',
+                    'span:has-text("e-mail")'
+                ]
+                
+                for selector in email_selectors:
+                    try:
+                        element = await self.page.wait_for_selector(selector, timeout=2000)
+                        if element and await element.is_visible():
+                            await element.click()
+                            await self.random_delay(1, 2)
+                            print(f"Option email trouvée avec: {selector}")
+                            break
+                    except:
+                        continue
+            except Exception as e:
+                print(f"Erreur sélection option email: {e}")
+
+            # 3. Attendre le formulaire de connexion
+            print("Attente du formulaire...")
+            # Un champ username ou email doit apparaître
+            await self.page.wait_for_selector('input[name="username"], input[name="email"], #username', timeout=10000)
             
             # Remplir l'email
-            await self.human_type('input[type="email"], input[name="email"]', email)
+            await self.human_type('input[name="username"], input[name="email"], #username', email)
             await self.random_delay()
             
             # Remplir le mot de passe
@@ -423,7 +492,7 @@ class VintedAutomation(BaseAutomation):
             try:
                 cookie_button = await self.page.wait_for_selector(
                     '[data-testid="cookie-bar-accept-all"], #onetrust-accept-btn-handler',
-                    timeout=3000
+                    timeout=10000
                 )
                 await cookie_button.click()
                 await self.random_delay()
@@ -431,22 +500,58 @@ class VintedAutomation(BaseAutomation):
                 pass
             
             # 3. Upload des images
-            file_input = await self.page.wait_for_selector(
-                'input[type="file"]',
-                timeout=10000
-            )
-            
-            for image_path in images:
-                await file_input.set_input_files(image_path)
+            print("📸 Début upload images...")
+            try:
+                # Attendre que l'input file soit dans le DOM (timeout long pour le tunnel)
+                await self.page.wait_for_selector('input[type="file"]', state='attached', timeout=30000)
+                
+                # Forcer l'input à être visible et interactable via JS
+                print("🔧 Forçage de la visibilité de l'input file...")
+                await self.page.evaluate('''
+                    () => {
+                        const input = document.querySelector('input[type="file"]');
+                        if (input) {
+                            // Rendre l'input visible et utilisable
+                            input.style.display = 'block';
+                            input.style.visibility = 'visible';
+                            input.style.opacity = '1';
+                            input.style.position = 'relative';
+                            input.style.width = '200px';
+                            input.style.height = '50px';
+                            input.style.zIndex = '9999';
+                            // Retirer les attributs qui pourraient bloquer
+                            input.removeAttribute('hidden');
+                            input.removeAttribute('disabled');
+                        }
+                    }
+                ''')
+                
                 await self.random_delay(1, 2)
+                
+                # Maintenant l'input est visible, on peut uploader
+                file_input = await self.page.query_selector('input[type="file"]')
+                if file_input:
+                    await file_input.set_input_files(images)
+                    print(f"✅ Upload de {len(images)} image(s) réussi")
+                else:
+                    raise Exception("Input file introuvable après modification JS")
+                    
+            except Exception as e:
+                await self.take_screenshot("vinted_upload_fail_debug")
+                print(f"❌ Echec upload images: {e}")
+                raise e
             
-            await self.random_delay(1, 2)  # Attendre le chargement
+            print("📸 Images envoyées, attente traitement...")
+            await self.random_delay(5, 8)  # Attendre le chargement et traitement
+            
+            # Vérifier si les images sont bien là (optionnel mais utile)
+            # par ex chercher .item-photo-thumbnail ou similaire
             
             # 4. Titre
             title_input = await self.page.wait_for_selector(
                 '[data-testid="title-input"], input[name="title"], '
                 'input[placeholder*="titre"], input[placeholder*="Titre"]',
-                timeout=5000
+                timeout=30000
             )
             await title_input.fill(title)
             await self.random_delay()
@@ -455,7 +560,7 @@ class VintedAutomation(BaseAutomation):
             description_input = await self.page.wait_for_selector(
                 '[data-testid="description-input"], textarea[name="description"], '
                 'textarea[placeholder*="décris"], textarea[placeholder*="Décris"]',
-                timeout=5000
+                timeout=30000
             )
             await description_input.fill(description)
             await self.random_delay()
@@ -496,7 +601,7 @@ class VintedAutomation(BaseAutomation):
             price_input = await self.page.wait_for_selector(
                 '[data-testid="price-input"], input[name="price"], '
                 'input[placeholder*="Prix"], input[placeholder*="prix"]',
-                timeout=5000
+                timeout=30000
             )
             await price_input.fill(str(int(price)))  # Vinted utilise des entiers
             await self.random_delay()
@@ -505,11 +610,12 @@ class VintedAutomation(BaseAutomation):
             await self.take_screenshot("vinted_before_submit")
             
             # 13. Soumettre
+            print("🚀 Soumission formulaire...")
             submit_button = await self.page.wait_for_selector(
                 '[data-testid="upload-submit-button"], '
                 'button[type="submit"]:has-text("Ajouter"), '
                 'button:has-text("Ajouter l\'article")',
-                timeout=5000
+                timeout=30000
             )
             await submit_button.click()
             

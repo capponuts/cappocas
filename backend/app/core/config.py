@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = Field(default="minioadmin")
     MINIO_SECRET_KEY: str = Field(default="minioadmin123")
     MINIO_BUCKET: str = Field(default="cappocas-images")
+    MINIO_PUBLIC_URL: str = Field(default="")
     MINIO_SECURE: bool = Field(default=False)
     
     # ===================

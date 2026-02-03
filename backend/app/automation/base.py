@@ -40,8 +40,11 @@ class BaseAutomation(ABC):
         if not self.proxy:
             return None
         
-        # Format attendu: http://user:pass@ip:port ou http://ip:port
-        return {"server": self.proxy}
+        proxy_url = self.proxy
+        if not proxy_url.startswith(("http://", "https://", "socks4://", "socks5://")):
+            proxy_url = f"http://{proxy_url}"
+            
+        return {"server": proxy_url}
     
     async def random_delay(self, min_sec: Optional[float] = None, max_sec: Optional[float] = None):
         """Attendre un délai aléatoire pour simuler un comportement humain."""
@@ -119,7 +122,26 @@ class BaseAutomation(ABC):
     
     async def load_cookies(self, cookies: List[Dict[str, Any]]):
         """Charger des cookies de session."""
-        await self.context.add_cookies(cookies)
+        sanitized_cookies = []
+        for cookie in cookies:
+            # Playwright est strict sur les valeurs de sameSite
+            if 'sameSite' in cookie:
+                if cookie['sameSite'] not in ['Strict', 'Lax', 'None']:
+                    # Si la valeur n'est pas standard (ex: no_restriction), on la supprime
+                    # Playwright mettra une valeur par défaut
+                    del cookie['sameSite']
+            
+            # Certaines extensions exportent avec 'hostOnly' qui n'est pas standard pour Playwright
+            if 'hostOnly' in cookie:
+                del cookie['hostOnly']
+            
+            # 'session' est aussi parfois ajouté par les extensions
+            if 'session' in cookie:
+                del cookie['session']
+
+            sanitized_cookies.append(cookie)
+            
+        await self.context.add_cookies(sanitized_cookies)
     
     @abstractmethod
     async def login(self, email: str, password: str) -> bool:

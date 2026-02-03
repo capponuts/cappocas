@@ -87,3 +87,21 @@ Thumbs.db
 *.sqlite3
 uploads/
 screenshots/
+
+# Debug screenshots
+*.png
+vinted_*.png
+leboncoin_*.png
+
+# Test scripts
+test_*.py
+reproduce_*.py
+
+# Sensitive data
+vinted_cookies.json
+keys/
+backend/config/proxies.txt
+
+# Logs
+*.log
+/tmp/

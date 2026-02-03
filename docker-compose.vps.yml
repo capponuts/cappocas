@@ -15,7 +15,7 @@ services:
     volumes:
       - cappocas_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cappocas}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cappocas}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
     volumes:
       - cappocas_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,7 +54,7 @@ services:
     volumes:
       - cappocas_minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -84,9 +84,13 @@ services:
       - LEBONCOIN_PASSWORD=${LEBONCOIN_PASSWORD:-}
       - VINTED_EMAIL=${VINTED_EMAIL:-}
       - VINTED_PASSWORD=${VINTED_PASSWORD:-}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+      - MINIO_PUBLIC_URL=https://cappocas.capponuts.fr/s3
       - MIN_DELAY_BETWEEN_POSTS=${MIN_DELAY_BETWEEN_POSTS:-300}
       - MAX_DELAY_BETWEEN_POSTS=${MAX_DELAY_BETWEEN_POSTS:-900}
     volumes:
+      - ./backend/app:/app/app
+      - ./config:/app/config
       - cappocas_uploads:/app/uploads
       - cappocas_screenshots:/app/screenshots
       - cappocas_playwright:/root/.cache/ms-playwright
@@ -112,6 +116,7 @@ services:
       - traefik.http.routers.cappocas-health.entrypoints=web,websecure
       - traefik.http.routers.cappocas-health.tls.certresolver=mytlschallenge
       - traefik.http.services.cappocas-health.loadbalancer.server.port=8000
+      - traefik.docker.network=n8n_default
 
   # ===================
   # CELERY WORKER
@@ -133,9 +138,14 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
       - LEBONCOIN_EMAIL=${LEBONCOIN_EMAIL:-}
       - LEBONCOIN_PASSWORD=${LEBONCOIN_PASSWORD:-}
-      - VINTED_EMAIL=${VINTED_EMAIL:-}
       - VINTED_PASSWORD=${VINTED_PASSWORD:-}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+      - MINIO_PUBLIC_URL=https://cappocas.capponuts.fr/s3
+      - PROXY_LIST_FILE=/app/config/proxies.txt
+      - VINTED_EMAIL=${VINTED_EMAIL:-}
     volumes:
+      - ./backend/app:/app/app
+      - ./config:/app/config
       - cappocas_uploads:/app/uploads
       - cappocas_screenshots:/app/screenshots
       - cappocas_playwright:/root/.cache/ms-playwright
@@ -158,6 +168,17 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cappocas}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cappocas_db}
       - REDIS_URL=redis://redis:6379/0
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+      - VINTED_EMAIL=${VINTED_EMAIL:-}
+      - VINTED_PASSWORD=${VINTED_PASSWORD:-}
+      - LEBONCOIN_EMAIL=${LEBONCOIN_EMAIL:-}
+      - LEBONCOIN_PASSWORD=${LEBONCOIN_PASSWORD:-}
+    volumes:
+      - ./backend/app:/app/app
+      - ./config:/app/config
+      - cappocas_uploads:/app/uploads
+      - cappocas_screenshots:/app/screenshots
+      - cappocas_playwright:/root/.cache/ms-playwright
     depends_on:
       - backend
       - redis
@@ -190,6 +211,7 @@ services:
       - traefik.http.services.cappocas-flower.loadbalancer.server.port=5555
       - traefik.http.middlewares.flower-strip.stripprefix.prefixes=/flower
       - traefik.http.routers.cappocas-flower.middlewares=flower-strip
+      - traefik.docker.network=n8n_default
 
   # ===================
   # FRONTEND
@@ -213,6 +235,7 @@ services:
       - traefik.http.routers.cappocas-frontend.tls.certresolver=mytlschallenge
       - traefik.http.services.cappocas-frontend.loadbalancer.server.port=80
       - traefik.http.routers.cappocas-frontend.priority=1
+      - traefik.docker.network=n8n_default
 
 volumes:
   cappocas_postgres_data:
@@ -221,6 +244,7 @@ volumes:
   cappocas_uploads:
   cappocas_screenshots:
   cappocas_playwright:
+
 
 networks:
   cappocas_internal:

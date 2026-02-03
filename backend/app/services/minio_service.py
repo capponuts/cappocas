@@ -69,19 +69,8 @@ class MinIOService:
             raise
     
     def get_url(self, key: str, expires_hours: int = 24) -> str:
-        """Obtenir une URL présignée pour accéder au fichier."""
-        from datetime import timedelta
-        
-        try:
-            url = self.client.presigned_get_object(
-                self.bucket,
-                key,
-                expires=timedelta(hours=expires_hours),
-            )
-            return url
-        except S3Error as e:
-            print(f"❌ Erreur URL MinIO: {e}")
-            raise
+        """Obtenir l'URL pour accéder au fichier via le proxy backend."""
+        return f"/api/uploads/view/{key}"
     
     def delete_file(self, key: str) -> bool:
         """Supprimer un fichier de MinIO."""

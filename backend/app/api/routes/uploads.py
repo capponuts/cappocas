@@ -8,12 +8,24 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi.responses import Response
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.listing import ListingImage
 from app.services.minio_service import minio_service
 
 router = APIRouter()
+
+
+@router.get("/view/{image_key:path}")
+async def view_image(image_key: str):
+    """Router pour afficher une image via le backend (proxy MinIO)."""
+    try:
+        response = minio_service.client.get_object(minio_service.bucket, image_key)
+        content = response.read()
+        return Response(content=content, media_type=response.headers.get('content-type', 'image/jpeg'))
+    except Exception:
+        raise HTTPException(status_code=404, detail="Image non trouvée")
 
 
 # =================== SCHEMAS ===================

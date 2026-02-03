@@ -194,8 +194,14 @@ async def create_listing(
         
         await db.commit()
     
-    # Recharger avec les images
-    await db.refresh(listing)
+    # Recharger avec les images pour éviter l'erreur de validation Pydantic
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Listing)
+        .where(Listing.id == listing.id)
+        .options(selectinload(Listing.images))
+    )
+    listing = result.scalar_one()
     
     return ListingResponse.model_validate(listing)
 
@@ -232,7 +238,15 @@ async def update_listing(
         setattr(listing, field, value)
     
     await db.commit()
-    await db.refresh(listing)
+    
+    # Recharger avec les images
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .options(selectinload(Listing.images))
+    )
+    listing = result.scalar_one()
     
     return ListingResponse.model_validate(listing)
 
